@@ -255,9 +255,10 @@ def _fill_trainval_infos(nusc,
             else:
                 break
         info['sweeps'] = sweeps
-
-        info['maps'] = obtain_map_info(nusc, nusc_maps, sample, l2e_r_mat, l2e_t,
-                                       e2g_r_mat, e2g_t, lidar_path,info_prefix)
+        # 暂时直接把前视摄像头的路径加到pkl文件里供dataloader读取
+        info['maps'] = '/data2/chenyongcan/bev/PETR/data/nuscenes/mono-label/'+sample['data']['CAM_FRONT']+'.png'
+        # info['maps'] = obtain_map_info(nusc, nusc_maps, sample, l2e_r_mat, l2e_t,
+        #                                e2g_r_mat, e2g_t, lidar_path,info_prefix)
         # obtain annotation
         if not test:
             annotations = [
@@ -736,6 +737,7 @@ def obtain_map_info(nusc, nusc_maps, sample, l2e_r_mat, l2e_t, e2g_r_mat, e2g_t,
     map_mask_path = osp.join(nusc.dataroot, info_prefix)
     os.makedirs(map_mask_path, exist_ok=True)
     map_mask_path = osp.join(info_prefix, osp.splitext(osp.basename(lidar_path))[0] + '.npz')
+
     map_mask_path=osp.join(nusc.dataroot, map_mask_path)
     np.savez_compressed(map_mask_path, map_mask)
     map_info.update({'map_mask': map_mask_path})

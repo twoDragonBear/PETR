@@ -6,6 +6,9 @@ import numpy as np
 from mmdet.datasets.builder import PIPELINES
 from einops import rearrange
 import torch
+from PIL import Image
+from torchvision.transforms.functional import to_tensor
+
 @PIPELINES.register_module()
 class LoadMapsFromFiles(object):
     def __init__(self,k=None):
@@ -43,7 +46,9 @@ class LoadMultiViewImageFromMultiSweepsFiles(object):
                 sweep_range=[3,27],
                 sweeps_id = None,
                 color_type='unchanged',
-                sensors = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_FRONT_LEFT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_BACK_RIGHT'],
+                # sensors = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_FRONT_LEFT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_BACK_RIGHT'],
+                # 只保留前视摄像头的数据
+                sensors = ['CAM_FRONT'],
                 test_mode=True,
                 prob=1.0,
                 ):
@@ -150,13 +155,17 @@ class LoadMapsFromFiles_flattenf200f3(object):
         self.k=k
     def __call__(self,results):
         map_filename=results['map_filename']
-        maps=np.load(map_filename)
-        map_mask=maps['arr_0'].astype(np.float32)
+        # maps=np.load(map_filename)
+        # map_mask=maps['arr_0'].astype(np.float32)
         
-        maps=map_mask.transpose((2,0,1))
+        # maps=map_mask.transpose((2,0,1))
+        
+        # 处理地图数据，变成(14,196*200)的格式
+        maps = load_labels(map_filename,14)
+
         results['gt_map']=maps
         # maps=rearrange(maps, 'c (h h1) (w w2) -> (h w) c h1 w2 ', h1=16, w2=16)
-        maps=maps.reshape(3,200*200)
+        maps=maps.reshape(14,196*200)
         maps[maps>=0.5]=1
         maps[maps<0.5]=0
         maps=1-maps
@@ -164,3 +173,25 @@ class LoadMapsFromFiles_flattenf200f3(object):
         results['maps']=maps
         
         return results
+
+def load_labels(label_path,NUSCENES_CLASS_NAMES):
+
+    # Load label image as a torch tensor
+    encoded_labels =  to_tensor(Image.open(label_path)).long()
+
+    # Decode to binary labels
+    num_class = NUSCENES_CLASS_NAMES
+    labels = decode_binary_labels(encoded_labels, num_class + 1)
+
+    labels, mask = labels[:-1], labels[-1]
+    labels = labels.numpy().astype(int)
+    mask =mask.numpy().astype(int)
+
+    for i in range(len(labels)):
+        labels[i][mask == 0] = 0 
+
+    return labels
+
+def decode_binary_labels(labels, nclass):
+    bits = torch.pow(2, torch.arange(nclass))
+    return (labels & bits.view(-1, 1, 1)) > 0

@@ -29,16 +29,24 @@ input_modality = dict(
 model = dict(
     type='Petr3D_seg',
     use_grid_mask=True,
+    # 修改成resnet
     img_backbone=dict(
-        type='VoVNetCP',
-        spec_name='V-99-eSE',
-        norm_eval=True,
+        type='ResNet',
+        depth=50,
+        num_stages=4,
+        out_indices=(2, 3,),
         frozen_stages=-1,
-        input_ch=3,
-        out_features=('stage4','stage5',)),
+        norm_cfg=dict(type='BN2d', requires_grad=False),
+        norm_eval=True,
+        style='caffe',
+        with_cp=True,
+        dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
+        stage_with_dcn=(False, False, True, True),
+        pretrained = 'ckpts/resnet50_msra-5891d200.pth',
+        ),
     img_neck=dict(
         type='CPFPN',
-        in_channels=[768, 1024],
+        in_channels=[1024, 2048],
         out_channels=256,
         num_outs=2),
     pts_bbox_head=dict(
@@ -46,9 +54,11 @@ model = dict(
         num_classes=10,
         in_channels=256,
         num_query=900,
-        num_lane=625,
+        # 改成49乘50的格式
+        num_lane=2450,
         # blocks=[128,128,64],
-        blocks=[256,256,128],
+        # 两次上采样
+        blocks=[256,128],
         LID=True,
         with_position=True,
         with_multiview=True,
@@ -161,7 +171,7 @@ model = dict(
             pc_range=point_cloud_range))))
 
 dataset_type = 'MultiCustomNuScenesDataset'
-data_root = '/data/Dataset/nuScenes/'
+data_root = './data/nuscenes/'
 
 file_client_args = dict(backend='disk')
 
@@ -272,7 +282,7 @@ test_pipeline = [
 
 data = dict(
     samples_per_gpu=1,
-    workers_per_gpu=2,
+    workers_per_gpu=0,
     train=dict(
         type=dataset_type,
         data_root=data_root,

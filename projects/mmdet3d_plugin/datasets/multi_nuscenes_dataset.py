@@ -73,13 +73,23 @@ class MultiCustomNuScenesDataset(NuScenesDataset):
         info = self.data_infos[index]
         lane_info=self.lane_infos[index]
         # standard protocal modified from SECOND.Pytorch
+        # 只加载前视摄像头的数据
+        front_sweep = []
+        for sweep in info['sweeps']:
+            for k,v in sweep.items():
+                if k == 'CAM_FRONT':
+                   front_sweep.append({k:v})
+
+
         input_dict = dict(
             sample_idx=info['token'],
             # lidar_token=info['lidar_token'],
+            # 只加载前视摄像头的数据
+            sweeps=front_sweep,
             pts_filename=info['lidar_path'],
-            sweeps=info['sweeps'],
             timestamp=info['timestamp'] / 1e6,
-            map_filename=lane_info['maps']['map_mask'],
+            # 读取在pkl文件里的关于地图的路径
+            map_filename=lane_info['maps'],
         )
 
         if self.modality['use_camera']:
@@ -89,22 +99,26 @@ class MultiCustomNuScenesDataset(NuScenesDataset):
             extrinsics = []
             img_timestamp = []
             for cam_type, cam_info in info['cams'].items():
-                img_timestamp.append(cam_info['timestamp'] / 1e6)
-                image_paths.append(cam_info['data_path'])
-                # obtain lidar to image transformation matrix
-                lidar2cam_r = np.linalg.inv(cam_info['sensor2lidar_rotation'])
-                lidar2cam_t = cam_info[
-                    'sensor2lidar_translation'] @ lidar2cam_r.T
-                lidar2cam_rt = np.eye(4)
-                lidar2cam_rt[:3, :3] = lidar2cam_r.T
-                lidar2cam_rt[3, :3] = -lidar2cam_t
-                intrinsic = cam_info['cam_intrinsic']
-                viewpad = np.eye(4)
-                viewpad[:intrinsic.shape[0], :intrinsic.shape[1]] = intrinsic
-                lidar2img_rt = (viewpad @ lidar2cam_rt.T)
-                intrinsics.append(viewpad)
-                extrinsics.append(lidar2cam_rt)
-                lidar2img_rts.append(lidar2img_rt)
+                # 只加载前视摄像头的数据
+                if cam_type == 'CAM_FRONT':
+                    img_timestamp.append(cam_info['timestamp'] / 1e6)
+                    image_paths.append(cam_info['data_path'])
+                    # obtain lidar to image transformation matrix
+                    lidar2cam_r = np.linalg.inv(cam_info['sensor2lidar_rotation'])
+                    lidar2cam_t = cam_info[
+                        'sensor2lidar_translation'] @ lidar2cam_r.T
+                    lidar2cam_rt = np.eye(4)
+                    lidar2cam_rt[:3, :3] = lidar2cam_r.T
+                    lidar2cam_rt[3, :3] = -lidar2cam_t
+                    intrinsic = cam_info['cam_intrinsic']
+                    viewpad = np.eye(4)
+                    viewpad[:intrinsic.shape[0], :intrinsic.shape[1]] = intrinsic
+                    lidar2img_rt = (viewpad @ lidar2cam_rt.T)
+                    intrinsics.append(viewpad)
+                    extrinsics.append(lidar2cam_rt)
+                    lidar2img_rts.append(lidar2img_rt)
+            
+                
 
             input_dict.update(
                 dict(

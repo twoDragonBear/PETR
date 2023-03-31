@@ -371,7 +371,8 @@ class PETRHead_seg(AnchorFreeHead):
             self.se = SELayer(self.embed_dims)
 
         nx=ny=round(math.sqrt(self.num_lane))
-        x = (torch.arange(nx) + 0.5) / nx
+        # 变成49乘50的shape
+        x = (torch.arange(nx+1) + 0.5) / nx
         y = (torch.arange(ny) + 0.5) / ny
         xy=torch.meshgrid(x,y)
         self.reference_points_lane =torch.cat([xy[0].reshape(-1)[...,None],xy[1].reshape(-1)[...,None]],-1).cuda()
@@ -552,7 +553,8 @@ class PETRHead_seg(AnchorFreeHead):
             for img_meta in img_metas:    
                 time_stamps.append(np.asarray(img_meta['timestamp']))
             time_stamp = x.new_tensor(time_stamps)
-            time_stamp = time_stamp.view(batch_size, -1, 6)
+            # 只保留一个摄像头数据
+            time_stamp = time_stamp.view(batch_size, -1, 1)
             mean_time_stamp = (time_stamp[:, 1, :] - time_stamp[:, 0, :]).mean(-1)
             
         
@@ -560,14 +562,15 @@ class PETRHead_seg(AnchorFreeHead):
         outputs_coords = []
         outputs_lanes=[]
         for lvl in range(outs_dec_lane.shape[0]):
-            
-            lane_queries_lvl=lane_queries[lvl].view(1,25,25,-1).permute(0,3,1,2)
+            # 变成49乘50的shape
+            lane_queries_lvl=lane_queries[lvl].view(1,49,50,-1).permute(0,3,1,2)
             outputs_dri=self.lane_branches_dri[lvl](lane_queries_lvl)
             outputs_lan=self.lane_branches_lan[lvl](lane_queries_lvl)
             outputs_vie=self.lane_branches_vie[lvl](lane_queries_lvl)
             
             outputs_lane=torch.cat([outputs_dri,outputs_lan,outputs_vie],dim=1)
-            outputs_lane=outputs_lane.view(-1,3,200*200)
+            # 上采样两次变成196乘200
+            outputs_lane=outputs_lane.view(-1,3,196*200)
             
             outputs_lanes.append(outputs_lane)
 
