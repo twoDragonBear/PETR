@@ -230,7 +230,7 @@ class Petr3D_seg(MVXTwoStageDetector):
             f_lane=lane_preds.sigmoid()
             f_lane[f_lane>=0.43]=1
             f_lane[f_lane<0.43]=0
-            f_lane_show=copy.deepcopy(f_lane).reshape(3,200,200)
+            f_lane_show=copy.deepcopy(f_lane).reshape(3,196,200)
             gt_map_show=copy.deepcopy(gt_map[0])
             
             f_lane=f_lane.view(3,-1)
