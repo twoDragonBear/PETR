@@ -188,7 +188,7 @@ def load_labels(label_path,NUSCENES_CLASS_NAMES):
     mask =mask.numpy().astype(int)
 
     for i in range(len(labels)):
-        labels[i][mask == 0] = 0 
+        labels[i][mask == 1] = 0 
 
     return labels
 
